@@ -3,6 +3,8 @@ import java.util.ArrayList;
 import edu.macalester.graphics.CanvasWindow;
 import edu.macalester.graphics.GraphicsGroup;
 import edu.macalester.graphics.GraphicsText;
+import edu.macalester.graphics.Point;
+import edu.macalester.graphics.events.Key;
 import edu.macalester.graphics.ui.TextField;
 
 /**
@@ -12,7 +14,6 @@ public class WugGame extends GraphicsGroup {
     private CanvasWindow canvas;
     private TextField input;
     private GraphicsText words;
-    private String currentWord;
     private ArrayList<String> wordsList;
     //Hard coding so I don't have to think too hard
     //start nodes
@@ -30,6 +31,7 @@ public class WugGame extends GraphicsGroup {
     //end nodes
     private Node nodeT;
     private Node nodeY;
+    private Node[] nodes;
 
     //So sorry about this mess, this is an extremely rough prototype
     private ArrayList<Wire> allWires;
@@ -47,7 +49,7 @@ public class WugGame extends GraphicsGroup {
     private Wire wireVT;
     private Wire wireNP;
     private Wire wireVY;
-
+    private Wire wireNY;
 
     public WugGame () {
         canvas = new CanvasWindow("Prototype", 1000, 500);
@@ -60,43 +62,110 @@ public class WugGame extends GraphicsGroup {
             wire.addBoundingBox(canvas);
         }
 
-        canvas.onMouseDown((mouse) -> {
-            checkKeyTyped();
-            for (Wire wire : allWires) {
-                if (wire.isClicked(mouse.getPosition().getX(), mouse.getPosition().getY()) && !wire.equals(lastClickedWire)) {
-                    wire.decrimentWidth();
-                    lastClickedWire = wire;
-                    canvas.draw();
-                }
-            }
-        });
-
-        canvas.onMouseMove((m) -> {checkKeyTyped();});
+        
 
         input = new TextField();
-        input.setCenter(850, 50);
+        input.setText("");
+        input.setCenter(855, 50);
         canvas.add(input);
-        currentWord = "";
 
         words = new GraphicsText("", 0, 0);
         words.setCenter(850, 80);
         canvas.add(words);
+
+        canvas.animate((dt) -> {
+            checkKeyTyped();
+            nodeForces();
+            updateVelocities();
+            updatePositions();
+        });
+        
+        canvas.onKeyDown((e) -> {
+            if (e.getKey()==Key.RETURN_OR_ENTER) {
+                checkKeyTyped();
+            }
+        });
+
+        canvas.onMouseDown((mouse) -> {
+            for (Wire wire : allWires) {
+                if (wire.isClicked(mouse.getPosition().getX(), mouse.getPosition().getY()) && !wire.equals(lastClickedWire)) {
+                    wire.decrimentWidth();
+                    lastClickedWire = wire;
+                    return;
+                }
+            }
+        });
+    }
+
+    public void nodeForces() {
+        for (int i = 0; i<nodes.length; i++) {
+            for (int j = i+1; j<nodes.length; j++) {
+                double distance = nodes[i].getNodePosition().distance(nodes[j].getNodePosition());
+                double force = -1/(distance*distance/10 + 1);
+                Point forceVec = (nodes[i].getNodePosition().subtract(nodes[j].getNodePosition())).scale(force/10);
+                nodes[i].addAcc(-forceVec.getX(), -forceVec.getY());
+                nodes[j].addAcc(forceVec.getX(), forceVec.getY());
+            }
+        }
+        for (Wire wire : allWires) {
+            Node start = wire.getStart();
+            Node end = wire.getEnd();
+            double thickness = wire.getThickness();
+            thickness = thickness*thickness/2;
+            double displacement = end.getNodePosition().distance(start.getNodePosition())-(200-thickness);
+            if (displacement < 0) {
+                displacement = 0;
+            }
+            Point forceVec = (end.getNodePosition().subtract(start.getNodePosition())).scale(displacement/100000000*wire.getThickness());
+            start.addAcc(forceVec.getX(), forceVec.getY());
+            end.addAcc(-forceVec.getX(), -forceVec.getY());
+        }
+    }
+
+    public void updateVelocities() {
+        for (Node node : nodes) {
+            node.updateVel();
+        }
+    }
+
+    public void updatePositions() {
+        for (Node node : nodes) {
+            node.updatePos();
+            node.gravity();
+        }
+        for (Wire wire : allWires) {
+            wire.reposition();
+        }
     }
 
     public void checkKeyTyped() { //assumes input is all lower case
-        if (input.getText().isEmpty()) {
+        String text = input.getText().toLowerCase();
+        if (text.length()<2) {
             return;
         }
-        Character ch = input.getText().charAt(input.getText().length() - 1);
-        if (ch.compareTo('t') == 0 || ch.compareTo('y') == 0 || ch.compareTo('p') == 0){
-            currentWord = input.getText();
-            if (!wordsList.contains(currentWord)) {
-                words.setText(words.getText() + "\n" + currentWord);
-                increaseChosenLines(currentWord);
-                wordsList.add(currentWord);
+
+        for (int i = 0; i < text.length()-1; i++) {
+            char firstChar = text.charAt(i);
+            char secondChar = text.charAt(i+1);
+            Node firstNode = getNodeByLetter(firstChar);
+            Node secondNode = getNodeByLetter(secondChar);
+            if (secondNode == null || firstNode == null) {
+                input.setText("");
+                return;
+            } 
+            Wire connection = getConnectingWire(firstNode, secondNode);
+            if (connection == null) {
+                input.setText("");
+                return;
             }
+        }
+
+        if (!wordsList.contains(text) && text.length() <= 8){
+            words.setText(words.getText() + "\n" + text);
+            increaseChosenLines(text);
+            wordsList.add(text);
+        } else {
             input.setText("");
-            canvas.draw();
         }
     }
 
@@ -165,6 +234,8 @@ public class WugGame extends GraphicsGroup {
                 return wireLN;
             } else if (secondNode.equals(nodeP)) {
                 return wireNP;
+            } else if (secondNode.equals(nodeY)) {
+                return wireNY;
             }
         }
         return null;
@@ -194,8 +265,8 @@ public class WugGame extends GraphicsGroup {
             return nodeT;
         } else if (ch.compareTo('y') == 0) {
             return nodeY;
-        }
-        return nodeA;
+        } 
+        return null;
     }
 
     private void addConnections() {
@@ -238,6 +309,9 @@ public class WugGame extends GraphicsGroup {
         wireVY = new Wire(nodeV, nodeY);
         allWires.add(wireVY);
 
+        wireNY = new Wire(nodeN, nodeY);
+        allWires.add(wireNY);
+
         for (Wire wire : allWires) {
             canvas.add(wire);
         }
@@ -246,20 +320,21 @@ public class WugGame extends GraphicsGroup {
     }
 
     private void createNodes() {
-        nodeA = new Node("A", 100, 100);
-        nodeW = new Node("W", 100, 250);
-        nodeU = new Node("U", 100, 400);
+        nodeA = new Node("a", 100, 100);
+        nodeW = new Node("w", 100, 250);
+        nodeU = new Node("u", 100, 400);
         
-        nodeS = new Node("S", 300, 100);
-        nodeE = new Node("E", 300, 250);
-        nodeL = new Node("L", 300, 400);
+        nodeS = new Node("s", 300, 100);
+        nodeE = new Node("e", 300, 250);
+        nodeL = new Node("l", 300, 400);
         
-        nodeV = new Node("V", 500, 175);
-        nodeN = new Node("N", 500, 325);
+        nodeV = new Node("v", 500, 175);
+        nodeN = new Node("n", 500, 325);
        
-        nodeT = new Node("T", 700, 100);
-        nodeY = new Node("Y", 700, 250);
-        nodeP = new Node("P", 700, 400);
+        nodeT = new Node("t", 700, 100);
+        nodeY = new Node("y", 700, 250);
+        nodeP = new Node("p", 700, 400);
+        nodes = new Node[]{nodeA, nodeW, nodeU, nodeS, nodeE, nodeL, nodeV, nodeN, nodeP, nodeT, nodeY};
         }
 
     private void addNodes() {
