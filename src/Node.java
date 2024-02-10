@@ -28,6 +28,7 @@ public class Node extends GraphicsGroup{
         circle = new Ellipse(xPosition, yPosition, SIZE, SIZE);
         circle.setCenter(xPosition, yPosition);
         circle.setFillColor(Color.WHITE);
+        circle.setStrokeWidth(1);
         label = new GraphicsText(letter, xPosition, yPosition);
         label.setFontSize(30);
         label.setCenter(xPosition, yPosition);
@@ -80,6 +81,9 @@ public class Node extends GraphicsGroup{
             yPosition = 499;
             yVel = -Math.abs(yVel);
         }
+
+        yVel *= .99;
+        xVel *= .99;
         circle.setCenter(xPosition, yPosition);
         label.setCenter(xPosition, yPosition);
     }

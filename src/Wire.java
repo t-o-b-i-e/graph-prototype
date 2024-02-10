@@ -16,7 +16,7 @@ public class Wire extends Line{
     
     public Wire(Node nodeA, Node nodeB) {
         super(nodeA.getCenter(), nodeB.getCenter());
-        super.setStrokeColor(Color.MAGENTA);
+        super.setStrokeColor(new Color(255,66,66));
         this.nodeA = nodeA;
         this.nodeB = nodeB;
         width = 2*(new Random().nextInt(4) + 2);

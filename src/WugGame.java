@@ -4,7 +4,6 @@ import edu.macalester.graphics.CanvasWindow;
 import edu.macalester.graphics.GraphicsGroup;
 import edu.macalester.graphics.GraphicsText;
 import edu.macalester.graphics.Point;
-import edu.macalester.graphics.events.Key;
 import edu.macalester.graphics.ui.TextField;
 
 /**
@@ -79,12 +78,6 @@ public class WugGame extends GraphicsGroup {
             updateVelocities();
             updatePositions();
         });
-        
-        canvas.onKeyDown((e) -> {
-            if (e.getKey()==Key.RETURN_OR_ENTER) {
-                checkKeyTyped();
-            }
-        });
 
         canvas.onMouseDown((mouse) -> {
             for (Wire wire : allWires) {
@@ -102,7 +95,7 @@ public class WugGame extends GraphicsGroup {
             for (int j = i+1; j<nodes.length; j++) {
                 double distance = nodes[i].getNodePosition().distance(nodes[j].getNodePosition());
                 double force = -1/(distance*distance/10 + 1);
-                Point forceVec = (nodes[i].getNodePosition().subtract(nodes[j].getNodePosition())).scale(force/10);
+                Point forceVec = (nodes[i].getNodePosition().subtract(nodes[j].getNodePosition())).scale(force/5);
                 nodes[i].addAcc(-forceVec.getX(), -forceVec.getY());
                 nodes[j].addAcc(forceVec.getX(), forceVec.getY());
             }
@@ -110,13 +103,13 @@ public class WugGame extends GraphicsGroup {
         for (Wire wire : allWires) {
             Node start = wire.getStart();
             Node end = wire.getEnd();
-            double thickness = wire.getThickness();
-            thickness = thickness*thickness/2;
+            double thickness = Math.min(wire.getThickness(),9);
+            thickness = thickness*thickness*thickness/3;
             double displacement = end.getNodePosition().distance(start.getNodePosition())-(200-thickness);
             if (displacement < 0) {
                 displacement = 0;
             }
-            Point forceVec = (end.getNodePosition().subtract(start.getNodePosition())).scale(displacement/100000000*wire.getThickness());
+            Point forceVec = (end.getNodePosition().subtract(start.getNodePosition())).scale(displacement/10000000*wire.getThickness());
             start.addAcc(forceVec.getX(), forceVec.getY());
             end.addAcc(-forceVec.getX(), -forceVec.getY());
         }
@@ -140,7 +133,12 @@ public class WugGame extends GraphicsGroup {
 
     public void checkKeyTyped() { //assumes input is all lower case
         String text = input.getText().toLowerCase();
-        if (text.length()<2) {
+        if (text.length()<3) {
+            return;
+        }
+        if (text.charAt(text.length()-1) == ' ') {
+            text = text.substring(0, text.length()-1);
+        } else {
             return;
         }
 
