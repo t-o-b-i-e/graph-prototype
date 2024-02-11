@@ -8,7 +8,7 @@ import edu.macalester.graphics.Point;
 import edu.macalester.graphics.Rectangle;
 
 public class Wire extends Line{
-    private int width;
+    private double width;
     private Rectangle boundingBox;
     private Node nodeA;
     private Node nodeB;
@@ -16,7 +16,7 @@ public class Wire extends Line{
     
     public Wire(Node nodeA, Node nodeB) {
         super(nodeA.getCenter(), nodeB.getCenter());
-        super.setStrokeColor(new Color(255,66,66));
+        super.setStrokeColor(Color.WHITE);
         this.nodeA = nodeA;
         this.nodeB = nodeB;
         width = 2*(new Random().nextInt(4) + 2);
@@ -47,7 +47,7 @@ public class Wire extends Line{
         this.canvas = canvas;
     }
 
-    public int getThickness() {
+    public double getThickness() {
         return width;
     }
 
@@ -67,12 +67,29 @@ public class Wire extends Line{
     }
 
     public void decrimentWidth() {
-        if (width > 2) {
-            width -= 2;
-            this.setStrokeWidth(width);
-        } else {
+        width -= 2;
+        if (checkWidth()) {
+            return;
+        }
+        this.setStrokeWidth(width);
+    }
+
+    public void decay() {
+        width -= .005;
+        if (checkWidth()) {
+            return;
+        }
+        this.setStrokeWidth(width);
+    }
+
+    public boolean checkWidth() {
+        if (width <=0) {
             canvas.remove(boundingBox);
             canvas.remove(this);
+            nodeA.addVel(nodeA.getNodePosition().subtract(this.getCenter()).scale(.05));
+            nodeB.addVel(nodeB.getNodePosition().subtract(this.getCenter()).scale(.05));
+            return true;
         }
+        return false;
     }
 }

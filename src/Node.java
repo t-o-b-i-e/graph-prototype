@@ -27,8 +27,9 @@ public class Node extends GraphicsGroup{
         connections = new ArrayList<>();
         circle = new Ellipse(xPosition, yPosition, SIZE, SIZE);
         circle.setCenter(xPosition, yPosition);
-        circle.setFillColor(Color.WHITE);
+        circle.setFillColor(new Color(102,179,255));
         circle.setStrokeWidth(1);
+        circle.setStrokeColor(Color.WHITE);
         label = new GraphicsText(letter, xPosition, yPosition);
         label.setFontSize(30);
         label.setCenter(xPosition, yPosition);
@@ -51,12 +52,12 @@ public class Node extends GraphicsGroup{
     }
 
     public void gravity() {
-        xAcc = -electricForce(800-xPosition) + electricForce(xPosition);
-        yAcc = -electricForce(500-yPosition) + electricForce(yPosition);
+        xAcc = -electricForce(775-xPosition) + electricForce(xPosition-25);
+        yAcc = -electricForce(475-yPosition) + electricForce(yPosition-25);
     }
 
     private double electricForce(double x) {
-        return .25/(x*x/1000 + 1);
+        return .5/(x*x/10000 + 1);
     }
 
     public void updateVel() {
@@ -64,26 +65,31 @@ public class Node extends GraphicsGroup{
         this.yVel += yAcc;
     }
 
+    public void addVel(Point p) {
+        this.xVel += p.getX();
+        this.yVel += p.getY();
+    }
+
     public void updatePos() {
         this.xPosition += xVel;
         this.yPosition += yVel;
-        if (xPosition < 0) {
-            xPosition = 1;
+        if (xPosition < 25) {
+            xPosition = 26;
             xVel = Math.abs(xVel);
-        } else if (xPosition >= 800) {
-            xPosition = 799;
+        } else if (xPosition >= 775) {
+            xPosition = 774;
             xVel = -Math.abs(xVel);
         }
-        if (yPosition < 0) {
-            yPosition = 1;
+        if (yPosition < 25) {
+            yPosition = 26;
             yVel = Math.abs(yVel);
-        } else if (yPosition > 500) {
-            yPosition = 499;
+        } else if (yPosition > 475) {
+            yPosition = 474;
             yVel = -Math.abs(yVel);
         }
 
-        yVel *= .99;
-        xVel *= .99;
+        yVel = .9*yVel;
+        xVel = .9*xVel;
         circle.setCenter(xPosition, yPosition);
         label.setCenter(xPosition, yPosition);
     }

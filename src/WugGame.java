@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.awt.Color;
 
 import edu.macalester.graphics.CanvasWindow;
 import edu.macalester.graphics.GraphicsGroup;
@@ -52,6 +53,7 @@ public class WugGame extends GraphicsGroup {
 
     public WugGame () {
         canvas = new CanvasWindow("Prototype", 1000, 500);
+        canvas.setBackground(new Color(102,179,255));
         allWires = new ArrayList<>();
         wordsList = new ArrayList<>();
 
@@ -64,12 +66,16 @@ public class WugGame extends GraphicsGroup {
         
 
         input = new TextField();
+        input.setBackground(new Color(102,179,255));
+        input.setAnchor(800,40);
         input.setText("");
-        input.setCenter(855, 50);
+        input.setPosition(800, 40);
         canvas.add(input);
 
         words = new GraphicsText("", 0, 0);
-        words.setCenter(850, 80);
+        words.setFontSize(15);
+        words.setFillColor(Color.WHITE);
+        words.setPosition(800, 55);
         canvas.add(words);
 
         canvas.animate((dt) -> {
@@ -77,6 +83,7 @@ public class WugGame extends GraphicsGroup {
             nodeForces();
             updateVelocities();
             updatePositions();
+            decayWires();
         });
 
         canvas.onMouseDown((mouse) -> {
@@ -90,12 +97,16 @@ public class WugGame extends GraphicsGroup {
         });
     }
 
+    //the force directed graph thing has an electric (inverse square based on distance) force between all nodes
+    //and a spring (-proportional to displacement from the resting length) force. forces just are acceleration,
+    //and we add these forces instead of setting them because we zero out acc + then calculate the force from the
+    //boundaries in update positions (too much interlinked stuff but this is a prototype)
     public void nodeForces() {
         for (int i = 0; i<nodes.length; i++) {
             for (int j = i+1; j<nodes.length; j++) {
                 double distance = nodes[i].getNodePosition().distance(nodes[j].getNodePosition());
-                double force = -1/(distance*distance/10 + 1);
-                Point forceVec = (nodes[i].getNodePosition().subtract(nodes[j].getNodePosition())).scale(force/5);
+                double force = -1/(distance*distance/15 + 1);
+                Point forceVec = (nodes[i].getNodePosition().subtract(nodes[j].getNodePosition())).scale(force);
                 nodes[i].addAcc(-forceVec.getX(), -forceVec.getY());
                 nodes[j].addAcc(forceVec.getX(), forceVec.getY());
             }
@@ -104,14 +115,26 @@ public class WugGame extends GraphicsGroup {
             Node start = wire.getStart();
             Node end = wire.getEnd();
             double thickness = Math.min(wire.getThickness(),9);
-            thickness = thickness*thickness*thickness/3;
+            thickness = thickness*thickness*thickness/3; //emphasizes the effect of thickness
             double displacement = end.getNodePosition().distance(start.getNodePosition())-(200-thickness);
-            if (displacement < 0) {
+            if (displacement < 0) { //so the wires don't act like springs, they don't push the nodes away if its closer than resting
                 displacement = 0;
             }
-            Point forceVec = (end.getNodePosition().subtract(start.getNodePosition())).scale(displacement/10000000*wire.getThickness());
+            Point forceVec = (end.getNodePosition().subtract(start.getNodePosition())).scale(displacement/1000000*wire.getThickness());
             start.addAcc(forceVec.getX(), forceVec.getY());
             end.addAcc(-forceVec.getX(), -forceVec.getY());
+        }
+    }
+
+    //this is a prototype so if you don't want to play singleplayer you have to comment out decaywires
+    //because the wire's decriment doesn't remove it from wires so it crashes when it tries to decay the wire
+    public void decayWires() {
+        for (Wire wire : allWires) {
+            wire.decay();
+            if (wire.getThickness()<=0) {
+                allWires.remove(wire);
+                break;
+            }
         }
     }
 
@@ -124,7 +147,7 @@ public class WugGame extends GraphicsGroup {
     public void updatePositions() {
         for (Node node : nodes) {
             node.updatePos();
-            node.gravity();
+            node.gravity(); //gravity is poorly named it's really an electric force i realized that works better to keep them in bounds
         }
         for (Wire wire : allWires) {
             wire.reposition();
@@ -133,7 +156,7 @@ public class WugGame extends GraphicsGroup {
 
     public void checkKeyTyped() { //assumes input is all lower case
         String text = input.getText().toLowerCase();
-        if (text.length()<3) {
+        if (text.length()<3) { //we only accept 2 letter words, and you press space to submit, so it has to be at least 2 letters and space
             return;
         }
         if (text.charAt(text.length()-1) == ' ') {
@@ -142,17 +165,17 @@ public class WugGame extends GraphicsGroup {
             return;
         }
 
-        for (int i = 0; i < text.length()-1; i++) {
+        for (int i = 0; i < text.length()-1; i++) { // loops through every pair
             char firstChar = text.charAt(i);
             char secondChar = text.charAt(i+1);
             Node firstNode = getNodeByLetter(firstChar);
             Node secondNode = getNodeByLetter(secondChar);
-            if (secondNode == null || firstNode == null) {
+            if (secondNode == null || firstNode == null) { //both characters have to have a node
                 input.setText("");
                 return;
             } 
             Wire connection = getConnectingWire(firstNode, secondNode);
-            if (connection == null) {
+            if (connection == null) { //and they have to have a wire
                 input.setText("");
                 return;
             }
@@ -204,12 +227,16 @@ public class WugGame extends GraphicsGroup {
                 return wireEV;
             } else if (secondNode.equals(nodeN)) {
                 return wireEN;
+            } else if (secondNode.equals(nodeW)) {
+                return wireWE;
             }
         } else if (firstNode.equals(nodeL)) {
             if (secondNode.equals(nodeE)) {
                 return wireLE;
             } else if (secondNode.equals(nodeN)) {
                 return wireLN;
+            } else if (secondNode.equals(nodeU)) {
+                return wireUL;
             }
         } else if (firstNode.equals(nodeV)) {
             if (secondNode.equals(nodeS)) {
@@ -234,6 +261,20 @@ public class WugGame extends GraphicsGroup {
                 return wireNP;
             } else if (secondNode.equals(nodeY)) {
                 return wireNY;
+            }
+        } else if (firstNode.equals(nodeT)) {
+            if (secondNode.equals(nodeV)) {
+                return wireVT;
+            }
+        } else if (firstNode.equals(nodeY)) {
+            if (secondNode.equals(nodeV)) {
+                return wireVY;
+            } else if (secondNode.equals(nodeN)) {
+                return wireNY;
+            }
+        } else if (firstNode.equals(nodeP)) {
+            if (secondNode.equals(nodeN)) {
+                return wireNP;
             }
         }
         return null;
